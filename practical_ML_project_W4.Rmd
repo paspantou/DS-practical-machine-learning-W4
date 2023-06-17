@@ -1,0 +1,96 @@
+---
+title: "Practical_ML_project"
+author: "Panagiotis Paschalidis"
+date: "17 06 2023"
+output: html_document
+---
+
+
+```{r setup, echo=FALSE,message=FALSE,warning=FALSE}
+
+library(knitr)
+
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(ggplot2)
+```
+## Overview
+In this project, we are going to employ machine learning algorithms in order to predict the manner in which the exercise was done based on the recorded data.
+
+## Data preprocessing
+First we need to download and separate the data in training and testing sets. Note that the test set is not the test set used during the test and validation of the training. We also clean up the data.
+```{r}
+data.trainingfile.url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+data.testfile.url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+
+training.file <- './pml-training.csv'
+test.file <- './pml-testing.csv'
+
+download.file(data.trainingfile.url, training.file)
+download.file(data.testfile.url, test.file)
+
+training <- read.csv(training.file, na.strings = c("NA", "#DIV/0!" , ""), header = TRUE)
+testing <- read.csv(test.file, na.strings = c("NA", "#DIV/0!" , ""), header = TRUE)
+
+training<-training[,colSums(is.na(training))==0]
+testing<-testing[,colSums(is.na(testing))==0]
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+
+```
+
+## Cross validation
+We partition the training dataset. We will then use one part of the data (the testing set) to vadidate the models trained with the training part of the data (the training set).
+```{r cache =T}
+
+trainingset_i <- createDataPartition(training$classe, p = 0.75, list = FALSE)
+trainingset <- training[trainingset_i, ]
+testingset <- training[-trainingset_i, ]
+
+dim(trainingset)
+dim(testingset)
+
+trainingset$classe <- as.factor(trainingset$classe)
+testingset$classe <- as.factor(testingset$classe)
+
+```
+
+## Decision tree model
+Next we will train a decision tree model
+```{r cache =T}
+set.seed(12345)
+
+DecisionTree <- rpart(classe ~ ., data=trainingset, method = "class")
+predictionDecisionTree <- predict(DecisionTree, testingset, type ="class")
+
+confusionMatrix(predictionDecisionTree, testingset$classe)
+
+```
+
+## Random Forest model
+Furthermore we will train a random forest model
+```{r cache =T}
+ranForestModel <- randomForest(classe ~ ., data=trainingset, method = "class")
+predictionForest <- predict(ranForestModel, testingset, type ="class")
+
+confusionMatrix(predictionForest, testingset$classe)
+
+```
+
+The accuracy of the random forest model (99,73%) is clearly higher than the decision tree model (74,65%). The out-of-sample error is thus lower for the random forest model (0,27%) than for the decision tree model (25,35%).
+
+
+## Quiz - Test
+The random forest model is the most accurate, so we will use this for prediction of the quiz data set (included in the test set)
+```{r cache =T}
+testPrediction <- predict(ranForestModel, newdata=testing)
+data.frame(classe=testPrediction)
+
+
+```
+
+
+
